@@ -1,0 +1,204 @@
+apiVersion: 'batch.volcano.sh/v1alpha1'
+kind: 'Job'
+metadata:
+  generateName: 'testray-'
+  namespace: 'default'
+  labels:
+    lepton.sensetime.com/submitter: 'ailabdev'
+    lepton.sensetime.com/framework-type: 'MPI'
+    ring-controller.atlas: 'ascend-910b'
+spec:
+  minAvailable: 70
+  plugins:
+    ssh: []
+    svc: []
+    mpi:
+      - '--master=master'
+      - '--worker=worker'
+      - '--port=22'
+  maxRetry: 1
+  tasks:
+    - replicas: 1
+      name: 'master'
+      policies:
+        - event: 'PodEvicted'
+          action: 'RestartJob'
+        - event: 'TaskCompleted'
+          action: 'CompleteJob'
+      template:
+        metadata:
+          labels:
+            lepton.sensetime.com/submitter: 'ailabdev'
+            ring-controller.atlas: 'ascend-910b'
+        spec:
+          imagePullSecrets:
+            - name: 'tangrui'
+          containers:
+            - image: 'registry2.d.pjlab.org.cn/ccr-ailab-public/macapytorch:3.3.0.11-torch2.6-py310-ubuntu22.04-amd64-driver'
+              imagePullPolicy: 'IfNotPresent'
+              name: 'master'
+              command: ['bash', '-c']
+              args:
+                - |
+                  # 1. 环境变量与代理设置
+                  export http_proxy=http://10.140.3.216:5907/
+                  export https_proxy=http://10.140.3.216:5907/
+                  export HTTP_PROXY=http://10.140.3.216:5907/
+                  export HTTPS_PROXY=http://10.140.3.216:5907/
+
+                  # 2. 立即生成 hostfile (每行 IP slots=8)
+                  echo "$VC_MASTER_HOSTS,$MPI_HOST" | tr ',' '\n' | grep -v '^$' | awk '!x[$0]++' | sed 's/$/ slots=8/' > /hostfile2
+                  echo "Generated /hostfile2 content:"
+                  cat /hostfile2
+
+                  # 3. 生成执行脚本 /run.sh
+                  cat <<'EOF' > /run.sh
+                  #!/bin/bash
+                  MACA_PATH=/opt/maca
+                  IP_MASK=eth0
+                  # 总卡数 = 28 节点 * 8 卡 = 224
+                  CARD_NUM=224
+                  IB_PORT=xscale_0,xscale_1,xscale_2,xscale_3
+                  SOCKET_NIC=eth0
+                  GID_INDEX=5
+                  BENCH_NAME=${MACA_PATH}/samples/mccl_tests/perf/mccl_perf/alltoall_perf
+                  LIB_PATH_ENV="-x LD_LIBRARY_PATH=${MACA_PATH}/lib:${MACA_PATH}/lib64:${MACA_PATH}/ompi/lib"
+                  MCCL_ENV="-x MCCL_IB_GID_INDEX=${GID_INDEX} -x MCCL_IB_TC=128 -x MCCL_FAST_WRITE_BACK=1 -x MCCL_EARLY_WRITE_BACK=15 -x MCCL_CROSS_NIC=1 -x MCCL_ALGO=Ring -x MCCL_ENABLE_VSWITCH=1"
+                  MCCL_ENV="${MCCL_ENV} -x MCCL_SOCKET_IFNAME=${SOCKET_NIC} -x MCCL_IB_HCA=${IB_PORT} ${LIB_PATH_ENV} -x MCCL_USE_FILE_TUNING=0 -x FORCE_ACTIVE_WAIT=2 -x MCCl_SHM_DISABLE=1 -x MCCL_PCIE_BUFFER_MODE=0 -x MCCL_LIMIT_RING_LL_THREADTHRESHOLDS=1"
+                  MPI_ENV="--allow-run-as-root -mca plm_rsh_num_concurrent 256 -mca pml ^ucx -mca btl ^openib -mca routed direct -mca osc ^ucx -mca btl_tcp_if_include ${IP_MASK} -mca oob_tcp_if_include ${IP_MASK}"
+                  
+                  echo "Starting MPI Test..."
+                  ${MACA_PATH}/ompi/bin/mpirun -n ${CARD_NUM} --hostfile /hostfile2 ${MPI_ENV} ${MCCL_ENV} \
+                         bash -c "ulimit -n 1000000 && exec ${BENCH_NAME} -b 1G -e 8G -f 2 -n 20 -w 10"
+                  EOF
+                  chmod +x /run.sh
+
+                  # 4. SSHD 配置与基础工具安装
+                  ssh-keygen -A
+                  /usr/sbin/sshd -p 22
+                  (apt update && apt install -y iproute2 infiniband-diags vim) &
+
+                  # 5. 系统参数调整
+                  sysctl -w net.core.somaxconn=1000000 || true
+                  ulimit -n 1000000
+
+                  # 6. 只有 Master 节点执行 MPI 命令
+                  echo "Waiting for workers to be ready..."
+                  sleep 30
+                  echo "I am Master, launching task..."
+                  bash /run.sh 2>&1 | tee runlog.txt
+
+                  sleep inf
+              volumeMounts:
+                - name: 'shm-data'
+                  mountPath: '/dev/shm'
+                - name: 'pci-link'
+                  mountPath: '/opt/pci_switch_link'
+              resources:
+                requests:
+                  cpu: '224'
+                  memory: '1440Gi'
+                  metax-tech.com/gpu: '8'
+                  rdma-training/roce: '1'
+                limits:
+                  cpu: '224'
+                  memory: '1440Gi'
+                  metax-tech.com/gpu: '8'
+                  rdma-training/roce: '1'
+              securityContext:
+                privileged: true
+                capabilities:
+                  add:
+                    - 'IPC_LOCK'
+          restartPolicy: 'Never'
+          volumes:
+            - name: 'shm-data'
+              emptyDir:
+                medium: 'Memory'
+                sizeLimit: '64Gi'
+            - name: 'pci-link'
+              hostPath:
+                path: '/opt/pci_switch_link'
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: 'resource.compute.sensecore.cn/machine-type'
+                        operator: 'In'
+                        values:
+                          - 'x2ls.ri.i80'
+    - replicas: 69 
+      name: 'worker'
+      policies:
+        - event: 'PodEvicted'
+          action: 'RestartJob'
+      template:
+        metadata:
+          labels:
+            lepton.sensetime.com/submitter: 'ailabdev'
+            ring-controller.atlas: 'ascend-910b'
+        spec:
+          imagePullSecrets:
+            - name: 'tangrui'
+          containers:
+            - image: 'registry2.d.pjlab.org.cn/ccr-ailab-public/macapytorch:3.3.0.11-torch2.6-py310-ubuntu22.04-amd64-driver'
+              imagePullPolicy: 'IfNotPresent'
+              name: 'worker'
+              command: ['bash', '-c']
+              args:
+                - |
+                  # Worker 节点逻辑简单化：只需启动 SSHD 供 Master 调用
+                  ssh-keygen -A
+                  /usr/sbin/sshd -p 22
+                  
+                  # 同样生成 hostfile 方便进入容器排查
+                  echo "$VC_MASTER_HOSTS,$MPI_HOST" | tr ',' '\n' | grep -v '^$' | awk '!x[$0]++' | sed 's/$/ slots=8/' > /hostfile2
+                  
+                  sysctl -w net.core.somaxconn=1000000 || true
+                  ulimit -n 1000000
+                  
+                  echo "Worker is ready."
+                  sleep inf
+              volumeMounts:
+                - name: 'shm-data'
+                  mountPath: '/dev/shm'
+                - name: 'pci-link'
+                  mountPath: '/opt/pci_switch_link'
+              resources:
+                requests:
+                  cpu: '224'
+                  memory: '1440Gi'
+                  metax-tech.com/gpu: '8'
+                  rdma-training/roce: '1'
+                limits:
+                  cpu: '224'
+                  memory: '1440Gi'
+                  metax-tech.com/gpu: '8'
+                  rdma-training/roce: '1'
+              securityContext:
+                privileged: true
+                capabilities:
+                  add:
+                    - 'IPC_LOCK'
+          restartPolicy: 'Never'
+          volumes:
+            - name: 'shm-data'
+              emptyDir:
+                medium: 'Memory'
+                sizeLimit: '64Gi'
+            - name: 'pci-link'
+              hostPath:
+                path: '/opt/pci_switch_link'
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: 'resource.compute.sensecore.cn/machine-type'
+                        operator: 'In'
+                        values:
+                          - 'x2ls.ri.i80'
+  priorityClassName: 'normal'
+  queue: 'default'
+  schedulerName: 'volcano'

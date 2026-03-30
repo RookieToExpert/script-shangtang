@@ -1,0 +1,74 @@
+---
+- name: Muxi GPU & Yunmai NIC Strict Health Check (Final Stable)
+  hosts: muxi_servers
+  become: yes
+  gather_facts: no
+  vars:
+    expected_gpu_count: 8
+    expected_nic_count: 4
+    # 定义 PFC 预期的那一行，Pri 4 开启时应该包含这个特征
+    # pfc: 这一行，第五个数字(Pri 4)为 1
+    pfc_regex: 'pfc:\s+\d\s+\d\s+\d\s+\d\s+1'
+
+  tasks:
+    - name: 1. 获取 GPU 数量
+      shell: "mx-smi -L | grep -c 'GPU'"
+      register: gpu_check
+      changed_when: false
+
+    - name: 2. 获取云脉网卡 BDF 列表
+      shell: "lspci -D | grep '1f67:1111' | awk '{print $1}'"
+      register: nic_bdfs
+      changed_when: false
+    
+    - name: 3. 逐个检查网卡 PFC 配置
+      # 直接运行命令，如果不通，Ansible 会报错
+      shell: "yuncli qos -d {{ item }} --show | grep 'pfc:'"
+      loop: "{{ nic_bdfs.stdout_lines }}"
+      register: pfc_results
+      changed_when: false
+      when: nic_bdfs.stdout_lines | length > 0
+
+    - name: 4. 逐个检查网卡 FlexCC 配置
+      shell: "yuncli flexcc -d {{ item }} --show | grep 'dcqcn_rp_enable'"
+      loop: "{{ nic_bdfs.stdout_lines }}"
+      register: flexcc_results
+      changed_when: false
+      when: nic_bdfs.stdout_lines | length > 0
+
+    - name: 5. 统计处于 PORT_ACTIVE 的 xscale 数量
+      shell: "ibv_devinfo | grep -A 10 'xscale' | grep 'state:' | grep 'PORT_ACTIVE' | wc -l"
+      register: rdma_ok_count
+      changed_when: false
+
+    - name: 6. 计算判定结果 (Ansible 内部逻辑)
+      set_fact:
+        # 统计 PFC 结果列表中，符合正则(Pri 4 为 1)的项数
+        actual_pfc_ok: "{{ pfc_results.results | map(attribute='stdout') | select('search', pfc_regex) | list | length }}"
+        # 统计 FlexCC 结果列表中，值为 0 的项数
+        actual_flexcc_off: "{{ flexcc_results.results | map(attribute='stdout') | select('search', '0') | list | length }}"
+        
+    - name: 7. 综合判定
+      set_fact:
+        final_status: >-
+          {% if 
+            gpu_check.stdout|int == expected_gpu_count and 
+            nic_bdfs.stdout_lines|length == expected_nic_count and 
+            rdma_ok_count.stdout|int == expected_nic_count and 
+            actual_pfc_ok|int == expected_nic_count
+          %}PASS{% else %}FAIL{% endif %}
+        details: "GPU:{{ gpu_check.stdout }}/8 | RDMA:{{ rdma_ok_count.stdout }}/4 | PFC:{{ actual_pfc_ok }}/4 | FlexCC_Off:{{ actual_flexcc_off }}/4"
+
+- name: 生成汇总报表
+  hosts: localhost
+  tasks:
+    - name: 写入文件
+      copy:
+        content: |
+          Muxi Server Health Check Summary (Stable Version)
+          Generated at: {{ lookup('pipe', 'date "+%Y-%m-%d %H:%M:%S"') }}
+          ---------------------------------------------------------------------------------------
+          {% for host in groups['muxi_servers'] %}
+          {{ host.ljust(15) }} | {{ hostvars[host]['final_status'] | default('ERROR') }} | {{ hostvars[host]['details'] | default('No Data') }}
+          {% endfor %}
+        dest: "./muxi_health_summary.txt"

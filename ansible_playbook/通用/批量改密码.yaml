@@ -1,0 +1,46 @@
+---
+- name: Enable root SSH and set root password
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  vars:
+    root_password: "Goodsense@123"
+
+  tasks:
+  
+    - name: Enable PermitRootLogin yes
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin.*'
+        line: 'PermitRootLogin yes'
+        backup: no
+      notify: reload sshd
+
+    - name: Enable PasswordAuthentication yes
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication.*'
+        line: 'PasswordAuthentication yes'
+        backup: no
+      notify: reload sshd
+
+    - name: Show ssh auth config
+      command: grep -E "^(PermitRootLogin|PasswordAuthentication)" /etc/ssh/sshd_config
+      register: ssh_auth_status
+      ignore_errors: yes
+
+    - name: Display ssh config lines
+      debug:
+        var: ssh_auth_status.stdout_lines
+
+
+    - name: Set root password
+      shell: echo "root:{{ root_password }}" | chpasswd
+    
+  handlers:
+    - name: reload sshd
+      service:
+        name: ssh
+        state: reloaded
+

@@ -1,0 +1,39 @@
+---
+- name: 批量部署 muxi-acs 服务
+  hosts: all
+  become: yes
+  vars:
+    service_path: "/lib/systemd/system/muxi-acs.service"
+    script_path: "/usr/local/bin/modifyacs.sh"
+
+  tasks:
+    - name: 1. 将脚本拷贝到远程主机
+      copy:
+        src: files/modifyacs.sh  # 控制机上的文件
+        dest: "{{ script_path }}" # 远程机器的目标路径
+        mode: '0755'             # 赋予执行权限
+        owner: root
+        group: root
+
+    - name: 2. 创建 systemd 服务文件
+      copy:
+        dest: "{{ service_path }}"
+        content: |
+          [Unit]
+          Description=Execute /usr/local/bin/modifyacs.sh service
+
+          [Service]
+          Type=oneshot
+          ExecStart={{ script_path }}
+          RemainAfterExit=true
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: '0644'
+
+    - name: 3. 重新加载 systemd 并启动服务
+      systemd:
+        name: muxi-acs
+        daemon_reload: yes
+        enabled: yes
+        state: started

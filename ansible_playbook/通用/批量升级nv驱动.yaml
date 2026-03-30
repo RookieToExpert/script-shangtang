@@ -1,0 +1,90 @@
+- name: deploy and execute nvidia driver scripts
+  hosts: all
+  become: yes
+  gather_facts: no
+  
+  vars:
+    srcA: /root/uninstall_nvidia.sh
+    srcB: /root/gpu_driver_install_550_90_07.sh
+    
+  tasks:
+    # 1. 分发脚本阶段
+    - name: transfer uninstall files
+      copy: 
+        src: "{{ srcA }}"
+        dest: /home/opsadmin/
+        mode: '0755'
+
+    - name: transfer install files
+      copy: 
+        src: "{{ srcB }}"
+        dest: /home/opsadmin/
+        mode: '0755'
+
+    # 2. 卸载与第一次重启阶段
+    - name: execute uninstall script
+      shell: ./uninstall_nvidia.sh
+      args:
+        chdir: /home/opsadmin
+        executable: /bin/bash
+
+    - name: reboot server after uninstall
+      reboot:
+        msg: "Rebooting by Ansible after NVIDIA uninstall"
+        connect_timeout: 5
+        reboot_timeout: 600
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+
+    # 3. 安装与第二次重启阶段
+    - name: execute install script
+      shell: ./gpu_driver_install_550_90_07.sh
+      args:
+        chdir: /home/opsadmin
+        executable: /bin/bash
+
+    - name: reboot server after installation
+      reboot:
+        msg: "Rebooting by Ansible after NVIDIA installation"
+        connect_timeout: 5
+        reboot_timeout: 600
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+    
+    # 4. 验证与回归检查阶段 (NVIDIA 驱动基础检查)
+    - name: Wait for nvidia driver ready
+      command: nvidia-smi
+      register: smi_output
+      retries: 10
+      delay: 30
+      until: smi_output.rc == 0
+      changed_when: false
+
+    - name: Assert expected driver version is active
+      assert:
+        that:
+          - "'Driver Version: 550.90.07' in smi_output.stdout"
+          - "'CUDA Version' in smi_output.stdout"
+        fail_msg: "驱动升级失败或版本不匹配！当前 nvidia-smi 状态异常。"
+        success_msg: "NVIDIA 驱动 550.90.07 已成功安装并正常运行。"
+
+    - name: Display nvidia-smi output
+      debug:
+        msg: "{{ smi_output.stdout_lines }}"
+
+    # 5. 高级验证阶段 (FabricManager 状态检查)
+    - name: Wait for nvidia-fabricmanager to be active
+      command: systemctl is-active nvidia-fabricmanager
+      register: fm_status
+      retries: 6
+      delay: 10
+      until: fm_status.stdout == "active"
+      failed_when: false
+      changed_when: false
+
+    - name: Assert nvidia-fabricmanager is running
+      assert:
+        that:
+          - fm_status.stdout == "active"
+        fail_msg: "严重异常：nvidia-fabricmanager 服务未正常运行 (当前状态: {{ fm_status.stdout }})！NVLink 通信可能已失效。"
+        success_msg: "完美！nvidia-fabricmanager 服务状态为 Active，多卡互联拓扑就绪。"

@@ -1,0 +1,25 @@
+---
+- name: 检查服务文件是否存在
+  hosts: ecp
+  become: yes
+  gather_facts: no
+  vars:
+    target_services:
+      - muxi-acs.service
+      - muxi-pfc.service
+      - muxi-rdma.service
+
+  tasks:
+    - name: 探测服务文件
+      stat:
+        path: "/lib/systemd/system/{{ item }}"
+      register: service_stat
+      loop: "{{ target_services }}"
+
+    - name: 报告缺失的服务
+      debug:
+        msg: "【缺失服务】机器 {{ inventory_hostname }} 缺少 {{ item.item }}"
+      when: not item.stat.exists
+      loop: "{{ service_stat.results }}"
+      loop_control:
+        label: "{{ item.item }}"

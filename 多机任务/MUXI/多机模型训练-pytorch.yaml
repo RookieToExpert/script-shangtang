@@ -1,0 +1,160 @@
+apiVersion: 'batch.volcano.sh/v1alpha1'
+kind: 'Job'
+metadata:
+  name: 'ray-test-muxi-pytorch-16'
+  generateName: 'vcjob-'
+  namespace: 'default'
+  labels:
+    lepton.sensetime.com/submitter: 'ailabdev'
+    lepton.sensetime.com/framework-type: 'PyTorch'
+    ring-controller.atlas: 'ascend-910b'
+spec:
+  minAvailable: 16
+  plugins:
+    svc: []
+    pytorch:
+      - '--master=master'
+      - '--worker=worker'
+      - '--port=23456'
+  maxRetry: 1
+  tasks:
+    - replicas: 1
+      name: 'master'
+      policies:
+        - event: 'PodEvicted'
+          action: 'RestartJob'
+      template:
+        metadata:
+          labels:
+            lepton.sensetime.com/submitter: 'ailabdev'
+            ring-controller.atlas: 'ascend-910b'
+        spec:
+          imagePullSecrets:
+            - name: 'xiezs'
+          containers:
+            - image: 'registry2.d.pjlab.org.cn/ccr-ailab-public/megatron-lm:0.12.0-maca.ai3.3.0.11-torch2.6-py312-ubuntu22.04-amd64-driver'
+              imagePullPolicy: 'IfNotPresent'
+              name: 'master'
+              args:
+                - "# 1. 环境变量与代理设置\nexport http_proxy=http://10.140.3.216:5907/\nexport https_proxy=http://10.140.3.216:5907/\nexport HTTP_PROXY=http://10.140.3.216:5907/\nexport HTTPS_PROXY=http://10.140.3.216:5907/\n\n\n(apt update && apt install -y iproute2 infiniband-diags vim) &\n\n# 5. 系统参数调整\nsysctl -w net.core.somaxconn=1000000 || true\nulimit -n 1000000\n\ncd /data && bash /data/run.sh > run.log 2>&1\nsleep inf\n"
+              command:
+                - 'bash'
+                - '-c'
+              env: []
+              volumeMounts:
+                - name: '019bff32-37fc-7933-bf7e-8069aa9851b0-data'
+                  mountPath: '/data'
+                - name: 'shm-data'
+                  mountPath: '/dev/shm'
+                - name: 'pci-link'
+                  mountPath: '/opt/pci_switch_link'
+              resources:
+                requests:
+                  cpu: '224'
+                  memory: '1440Gi'
+                  metax-tech.com/gpu: '8'
+                  rdma-training/roce: '1'
+                limits:
+                  cpu: '224'
+                  memory: '1440Gi'
+                  metax-tech.com/gpu: '8'
+                  rdma-training/roce: '1'
+              securityContext:
+                capabilities:
+                  add:
+                    - 'IPC_LOCK'
+          restartPolicy: 'Never'
+          volumes:
+            - name: '019bff32-37fc-7933-bf7e-8069aa9851b0-data'
+              persistentVolumeClaim:
+                claimName: 'pvc-p89jv'
+            - name: 'shm-data'
+              emptyDir:
+                medium: 'Memory'
+                sizeLimit: '64Gi'
+            - name: 'pci-link'
+              hostPath:
+                path: '/opt/pci_switch_link'
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: 'resource.compute.sensecore.cn/machine-type'
+                        operator: 'In'
+                        values:
+                          - 'x2ls.ri.i80'
+          nodeSelector: {}
+    - replicas: 15
+      name: 'worker'
+      policies:
+        - event: 'PodEvicted'
+          action: 'RestartJob'
+      template:
+        metadata:
+          labels:
+            lepton.sensetime.com/submitter: 'ailabdev'
+            ring-controller.atlas: 'ascend-910b'
+        spec:
+          imagePullSecrets:
+            - name: 'xiezs'
+          containers:
+            - image: 'registry2.d.pjlab.org.cn/ccr-ailab-public/megatron-lm:0.12.0-maca.ai3.3.0.11-torch2.6-py312-ubuntu22.04-amd64-driver'
+              imagePullPolicy: 'IfNotPresent'
+              name: 'worker'
+              args:
+                - "# 1. 环境变量与代理设置\nexport http_proxy=http://10.140.3.216:5907/\nexport https_proxy=http://10.140.3.216:5907/\nexport HTTP_PROXY=http://10.140.3.216:5907/\nexport HTTPS_PROXY=http://10.140.3.216:5907/\n\n\n(apt update && apt install -y iproute2 infiniband-diags vim) &\n\n# 5. 系统参数调整\nsysctl -w net.core.somaxconn=1000000 || true\nulimit -n 1000000\n\ncd /data && bash /data/run.sh > run.log 2>&1\nsleep inf\n"
+              command:
+                - 'bash'
+                - '-c'
+              env: []
+              volumeMounts:
+                - name: '019bff32-37fc-7933-bf7e-8069aa9851b0-data'
+                  mountPath: '/data'
+                - name: 'shm-data'
+                  mountPath: '/dev/shm'
+                - name: 'pci-link'
+                  mountPath: '/opt/pci_switch_link'
+              resources:
+                requests:
+                  cpu: '224'
+                  memory: '1440Gi'
+                  metax-tech.com/gpu: '8'
+                  rdma-training/roce: '1'
+                limits:
+                  cpu: '224'
+                  memory: '1440Gi'
+                  metax-tech.com/gpu: '8'
+                  rdma-training/roce: '1'
+              securityContext:
+                capabilities:
+                  add:
+                    - 'IPC_LOCK'
+          restartPolicy: 'Never'
+          volumes:
+            - name: '019bff32-37fc-7933-bf7e-8069aa9851b0-data'
+              persistentVolumeClaim:
+                claimName: 'pvc-p89jv'
+            - name: 'pci-link'
+              hostPath:
+                path: '/opt/pci_switch_link'
+            - name: 'shm-data'
+              emptyDir:
+                medium: 'Memory'
+                sizeLimit: '64Gi'
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: 'resource.compute.sensecore.cn/machine-type'
+                        operator: 'In'
+                        values:
+                          - 'x2ls.ri.i80'
+          nodeSelector: {}
+  priorityClassName: 'normal'
+  queue: 'default'
+  schedulerName: 'volcano'
+  policies:
+    - event: 'PodEvicted'
+      action: 'RestartJob'

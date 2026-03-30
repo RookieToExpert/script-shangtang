@@ -1,0 +1,24 @@
+---
+- name: 检查并修复开机自启
+  hosts: ecp
+  become: yes
+  gather_facts: no
+  vars:
+    target_services: [muxi-acs, muxi-pfc, muxi-rdma]
+
+  tasks:
+    - name: 检查自启状态
+      shell: "systemctl is-enabled {{ item }} || echo 'disabled'"
+      register: enabled_status
+      loop: "{{ target_services }}"
+      changed_when: false
+
+    - name: 报告并修复未自启的服务
+      systemd:
+        name: "{{ item.item }}"
+        enabled: yes
+        state: started
+      when: "'disabled' in item.stdout"
+      loop: "{{ enabled_status.results }}"
+      loop_control:
+        label: "{{ item.item }}"

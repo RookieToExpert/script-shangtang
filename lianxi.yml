@@ -1,0 +1,59 @@
+- name: transfer ngnix.conf.j2
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  vars: 
+    src_path: /home/test6/nginx.conf.j2
+    dest_path: /etc/nginx/nginx.conf
+
+  tasks:
+    - name: transfer file to dest
+      #file:      # 改正：下发 j2 必须用 template 模块
+      template:
+        src: "{{ src_path }}"  # 改正：用引号包起来
+        dest: "{{ dest_path }}" # 改正：用引号包起来 改正：dest
+        mode: "0644"
+      notify: restart nginx service
+  
+  handlers:
+    - name: restart nginx service
+      systemd:
+        name: nginx
+        state: restarted
+
+
+- name: download and unarchive file
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  vars:
+    src_path: /opt/tools
+
+  tasks:
+    - name: create /opt/tools
+      file:
+        path: {{ src_path }}
+        state: directory
+        mode: 0755
+
+    - name: download file
+      #shell: cd /tmp && wget -c -O my-tools-v1.tar.gz "http://192.168.1.100/downloads/my-tools-v1.tar.gz"
+      #get_url用它下载，如果文件已经存在且没变化，它就不会重复下载
+      get_url:
+        url: http://192.168.1.100/downloads/my-tools-v1.tar.gz
+        dest: /tmp/my-tools-v1.tar.gz
+
+    - name: unarchive the file
+      unarchive:
+        src: /tmp/my-tools-v1.tar.gz
+        des: {{ src_path }}
+        
+
+- name: install basic network utilization
+  host: all
+  become: yes
+  gather_facts: yes
+
+

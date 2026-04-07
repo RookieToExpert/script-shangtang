@@ -1,4 +1,3 @@
----
 - name: 检查并修复 Failed 服务
   hosts: ecp
   become: yes

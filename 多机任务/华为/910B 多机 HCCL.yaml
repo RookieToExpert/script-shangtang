@@ -1,0 +1,157 @@
+apiVersion: 'batch.volcano.sh/v1alpha1'
+kind: 'Job'
+metadata:
+  generateName: 'st-hccltest-'
+  namespace: 'default'
+  labels:
+    lepton.sensetime.com/submitter: 'ailabdev'
+    lepton.sensetime.com/framework-type: 'MPI'
+    ring-controller.atlas: 'ascend-910b'
+spec:
+  minAvailable: 4
+  plugins:
+    ssh: []
+    svc: []
+    mpi:
+      - '--master=master'
+      - '--worker=worker'
+      - '--port=22'
+    hcclrank: []
+  maxRetry: 1
+  tasks:
+    - replicas: 1
+      name: 'master'
+      policies:
+        - event: 'PodEvicted'
+          action: 'RestartJob'
+        - event: 'TaskCompleted'
+          action: 'CompleteJob'
+      template:
+        metadata:
+          labels:
+            lepton.sensetime.com/submitter: 'ailabdev'
+            ring-controller.atlas: 'ascend-910b'
+        spec:
+          imagePullSecrets:
+            - name: 'testxie'
+          containers:
+            - image: 'registry2.d.pjlab.org.cn/ccr-ailab-public/ubuntu22.04-pytorch2.1.0.post6-py38-npu-910b.ak-8.0.rc2-modellink1.1:A2_0830'
+              imagePullPolicy: 'IfNotPresent'
+              name: 'master'
+              args:
+                - "apt update && apt install -y  ssh\nmkdir -p /var/run/sshd && /usr/sbin/sshd -p 22\nsleep inf"
+              command:
+                - 'bash'
+                - '-c'
+              env: []
+              volumeMounts:
+                - name: 'shm-data'
+                  mountPath: '/dev/shm'
+              resources:
+                requests:
+                  cpu: '144'
+                  huawei.com/Ascend910: '8'
+                  memory: '1920Gi'
+                limits:
+                  cpu: '144'
+                  huawei.com/Ascend910: '8'
+                  memory: '1920Gi'
+              securityContext:
+                capabilities:
+                  add:
+                    - 'IPC_LOCK'
+          restartPolicy: 'Never'
+          volumes:
+            - name: 'shm-data'
+              emptyDir:
+                medium: 'Memory'
+                sizeLimit: '64Gi'
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: 'resource.compute.sensecore.cn/machine-type'
+                        operator: 'In'
+                        values:
+                          - 'h1ls.rp.k60a'
+                      - key: 'kubernetes.io/hostname'
+                        operator: 'In'
+                        values:
+                          - 'host-10-140-213-5'
+                          - 'host-10-140-214-204'
+                          - 'host-10-140-213-226'
+                          - 'host-10-140-214-206'
+          nodeSelector:
+            host-arch: 'huawei-arm'
+            accelerator-type: 'module-910b-8'
+    - replicas: 3
+      name: 'worker'
+      policies:
+        - event: 'PodEvicted'
+          action: 'RestartJob'
+      template:
+        metadata:
+          labels:
+            lepton.sensetime.com/submitter: 'ailabdev'
+            ring-controller.atlas: 'ascend-910b'
+        spec:
+          imagePullSecrets:
+            - name: 'testxie'
+          containers:
+            - image: 'registry2.d.pjlab.org.cn/ccr-ailab-public/ubuntu22.04-pytorch2.1.0.post6-py38-npu-910b.ak-8.0.rc2-modellink1.1:A2_0830'
+              imagePullPolicy: 'IfNotPresent'
+              name: 'worker'
+              args:
+                - "apt update && apt install -y  ssh\nmkdir -p /var/run/sshd && /usr/sbin/sshd -p 22\nsleep inf"
+              command:
+                - 'bash'
+                - '-c'
+              env: []
+              volumeMounts:
+                - name: 'shm-data'
+                  mountPath: '/dev/shm'
+              resources:
+                requests:
+                  cpu: '144'
+                  huawei.com/Ascend910: '8'
+                  memory: '1920Gi'
+                limits:
+                  cpu: '144'
+                  huawei.com/Ascend910: '8'
+                  memory: '1920Gi'
+              securityContext:
+                capabilities:
+                  add:
+                    - 'IPC_LOCK'
+          restartPolicy: 'Never'
+          volumes:
+            - name: 'shm-data'
+              emptyDir:
+                medium: 'Memory'
+                sizeLimit: '64Gi'
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: 'resource.compute.sensecore.cn/machine-type'
+                        operator: 'In'
+                        values:
+                          - 'h1ls.rp.k60a'
+                      - key: 'kubernetes.io/hostname'
+                        operator: 'In'
+                        values:
+                          - 'host-10-140-213-5'
+                          - 'host-10-140-214-204'
+                          - 'host-10-140-213-226'
+                          - 'host-10-140-214-206'
+          nodeSelector:
+            host-arch: 'huawei-arm'
+            accelerator-type: 'module-910b-8'
+  priorityClassName: 'normal'
+  queue: 'default'
+  schedulerName: 'volcano'
+  policies:
+    - event: 'PodEvicted'
+      action: 'RestartJob'

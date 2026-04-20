@@ -1,0 +1,100 @@
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: job-3878c6bf-d99ft
+  namespace: 07b5fca8-be94-4f26-b2a0-37df9bd552c3
+  ownerReferences:
+  - apiVersion: ray.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RayJob
+    name: job-3878c6bf
+    uid: f3800b49-8b99-4307-8170-cd740a33ce33
+  resourceVersion: "265868946"
+  uid: 4b6807c9-ba97-4c47-865c-1db366a2e423
+spec:
+  headGroupSpec:
+    rayStartParams: {}
+    template:
+      metadata:
+        namespace: 07b5fca8-be94-4f26-b2a0-37df9bd552c3
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: topology.sensecore.cn/boson-rdma-network-cluster
+                  operator: In
+                  values:
+                  - None
+                - key: resource.compute.sensecore.cn/machine-type
+                  operator: In
+                  values:
+                  - h2ls.ru.k10
+                - key: resource.compute.sensecore.cn/provide-spot-resource
+                  operator: NotIn
+                  values:
+                  - "false"
+        containers:
+        - env:
+          - name: SSP_TRAININGJOB_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['volcano.sh/job-name']
+          image: registry2.d.pjlab.org.cn/ccr-hw/910c:rl_s1_vllm
+          imagePullPolicy: Always
+          name: head
+          resources:
+            limits:
+              cpu: "256"
+              huawei.com/Ascend910: "16"
+              memory: 1920Gi
+            requests:
+              cpu: "256"
+              huawei.com/Ascend910: "16"
+              memory: 1920Gi
+          securityContext:
+            capabilities:
+              add:
+              - IPC_LOCK
+              - SYS_PTRACE
+          volumeMounts:
+          - mountPath: /dev/shm
+            name: ait-shm-volume
+          - mountPath: /mnt/hw
+            name: ait-pvc-0789258b-7583-42db-b56e-38dc391a036f-0
+        - args:
+          - |-
+            until wget --tries 1 -T 10 -q -O- http://localhost:8265/api/gcs_healthz | grep success >/dev/null 2>&1 ; do echo "Waiting for Ray Dashboard GCS to become healthy at http://127.0.0.1:8265 ..." ; sleep 2 ; done ; ray job submit --address http://127.0.0.1:8265 --submission-id job-3878c6bf-rxx7x -- bash -c 'cd /mnt/hw/hw-linyifei2/nengx/xtuner_fork/xtuner
+            sleep inf' ;
+          command:
+          - /bin/bash
+          - -ce
+          - --
+          env:
+          - name: PYTHONUNBUFFERED
+            value: "1"
+          - name: RAY_DASHBOARD_ADDRESS
+          - name: RAY_JOB_SUBMISSION_ID
+            value: job-3878c6bf-rxx7x
+          image: registry2.d.pjlab.org.cn/ccr-hw/910c:rl_s1_vllm
+          name: ray-job-submitter
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: 500m
+              memory: 200Mi
+        nodeSelector:
+          accelerator-type: module-910c-8
+        restartPolicy: Never
+        volumes:
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 1Ti
+          name: ait-shm-volume
+        - name: ait-pvc-0789258b-7583-42db-b56e-38dc391a036f-0
+          persistentVolumeClaim:
+            claimName: ait-pvc-0789258b-7583-42db-b56e-38dc391a036f-0

@@ -48,7 +48,8 @@
     - name: unarchive the file
       unarchive:
         src: /tmp/my-tools-v1.tar.gz
-        des: {{ src_path }}
+        dest: {{ src_path }}
+        remote_src: yes     # 关键点：告诉 Ansible 这个包已经在远端机器上了，不要在本地找！
         
 
 - name: install basic network utilization
@@ -56,4 +57,26 @@
   become: yes
   gather_facts: yes
 
+  tasks:
+    # 针对 CentOS / RHEL 家族
+    - name: Install network tools for RedHat family
+      yum:
+        name: "{{ item }}"
+        state: present
+      # 使用 loop 循环安装这两个包
+      loop:
+        - net-tools
+        - bind-utils
+      # 关键点：条件判断！只有系统是 RedHat 时才执行这个任务
+      when: ansible_os_family == "RedHat"
 
+    # 针对 Ubuntu / Debian 家族
+    - name: Install network tools for Debian family
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - net-tools
+        - dnsutils
+      # 关键点：条件判断！只有系统是 Debian 时才执行这个任务
+      when: ansible_os_family == "Debian"

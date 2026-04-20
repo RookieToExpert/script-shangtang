@@ -1,0 +1,136 @@
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: job-raycluster-g9z26
+  namespace: e2e2bd86-f29d-48a9-9119-c22032f63aac
+  ownerReferences:
+  - apiVersion: ray.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RayJob
+    name: job-raycluster
+    uid: 15317d01-4df1-4bfb-8e00-bddbf6b200a8
+  resourceVersion: "209356879"
+  uid: 6123025e-ec3e-42fc-bda6-2c78177c0288
+spec:
+  headGroupSpec:
+    rayStartParams: {}
+    template:
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: topology.sensecore.cn/boson-rdma-network-cluster
+                  operator: In
+                  values:
+                  - roce-cluster-01
+                - key: resource.compute.sensecore.cn/machine-type
+                  operator: In
+                  values:
+                  - x2ls.ri.i80
+                - key: resource.compute.sensecore.cn/provide-spot-resource
+                  operator: NotIn
+                  values:
+                  - "false"
+        containers:
+        - env:
+          - name: SSP_TRAININGJOB_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['volcano.sh/job-name']
+          image: registry2.d.pjlab.org.cn/ccr-lepton-official-images/ray:2.54.0
+          imagePullPolicy: Always
+          name: head
+          resources:
+            limits:
+              cpu: "224"
+              memory: 1440Gi
+              metax-tech.com/gpu: "8"
+            requests:
+              cpu: "224"
+              memory: 1440Gi
+              metax-tech.com/gpu: "8"
+          securityContext:
+            capabilities:
+              add:
+              - IPC_LOCK
+              - SYS_PTRACE
+          volumeMounts:
+          - mountPath: /dev/shm
+            name: ait-shm-volume
+        - args:
+          - until wget --tries 1 -T 10 -q -O- http://localhost:8265/api/gcs_healthz
+            | grep success >/dev/null 2>&1 ; do echo "Waiting for Ray Dashboard GCS
+            to become healthy at http://127.0.0.1:8265 ..." ; sleep 2 ; done ; ray
+            job submit --address http://127.0.0.1:8265 --submission-id job-raycluster-sxzw9
+            -- sleep inf ;
+          command:
+          - /bin/bash
+          - -ce
+          - --
+          env:
+          - name: PYTHONUNBUFFERED
+            value: "1"
+          - name: RAY_DASHBOARD_ADDRESS
+          - name: RAY_JOB_SUBMISSION_ID
+            value: job-raycluster-sxzw9
+          image: registry2.d.pjlab.org.cn/ccr-lepton-official-images/ray:2.54.0
+          name: ray-job-submitter
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: 500m
+              memory: 200Mi
+        restartPolicy: Never
+        volumes:
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 64Gi
+          name: ait-shm-volume
+status:
+  conditions:
+  - lastTransitionTime: "2026-04-15T03:10:23Z"
+    message: ""
+    reason: HeadPodRunningAndReady
+    status: "True"
+    type: HeadPodReady
+  - lastTransitionTime: "2026-04-15T03:10:23Z"
+    message: All Ray Pods are ready for the first time
+    reason: AllPodRunningAndReadyFirstTime
+    status: "True"
+    type: RayClusterProvisioned
+  - lastTransitionTime: "2026-04-15T03:09:18Z"
+    message: ""
+    reason: RayClusterSuspended
+    status: "False"
+    type: RayClusterSuspended
+  - lastTransitionTime: "2026-04-15T03:09:18Z"
+    message: ""
+    reason: RayClusterSuspending
+    status: "False"
+    type: RayClusterSuspending
+  desiredCPU: 224500m
+  desiredGPU: "8"
+  desiredMemory: 1474760Mi
+  desiredTPU: "0"
+  endpoints:
+    client: "10001"
+    dashboard: "8265"
+    gcs-server: "6379"
+    metrics: "8080"
+    serve: "8000"
+  head:
+    podIP: 10.120.23.95
+    podName: job-raycluster-g9z26-head-dqtjb
+    serviceIP: 10.120.23.95
+    serviceName: job-raycluster-g9z26-head-svc
+  lastUpdateTime: "2026-04-15T03:10:23Z"
+  observedGeneration: 1
+  state: ready
+  stateTransitionTimes:
+    ready: "2026-04-15T03:10:23Z"
+

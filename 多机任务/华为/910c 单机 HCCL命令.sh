@@ -15,7 +15,7 @@ export HCCL_OP_EXPANSION_MODE="AIV"
 export HCCL_BUFFSIZE=2048           # 多机建议调大 buffer
 export HCCL_INTRA_ROCE_ENABLE=1     # 显式开启 RoCE 通信
 
-TOTAL_NPUS=32    # 总卡数 (16卡 * 2台)
+TOTAL_NPUS=16    # 总卡数 (16卡 * 2台)
 NPUS_PER_NODE=16 # 每台机器的卡数
 
 echo "--------------------------------------------------------"

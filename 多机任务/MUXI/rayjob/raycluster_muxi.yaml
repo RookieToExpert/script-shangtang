@@ -1,0 +1,95 @@
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: job-test-rayjob-muxi-rsbz5
+  namespace: 48ca786c-b977-4ecb-aa89-05c13fc0065f
+  ownerReferences:
+  - apiVersion: ray.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RayJob
+    name: job-test-rayjob-muxi
+    uid: 39a03e8c-21dc-42f5-b528-90751090e106
+  resourceVersion: "209936908"
+  uid: e6ca2995-4372-4135-b8b1-65af08ebbffb
+spec:
+  headGroupSpec:
+    rayStartParams: {}
+    template:
+      metadata:
+        namespace: 48ca786c-b977-4ecb-aa89-05c13fc0065f
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: topology.sensecore.cn/boson-rdma-network-cluster
+                  operator: In
+                  values:
+                  - roce-cluster-01
+                - key: resource.compute.sensecore.cn/machine-type
+                  operator: In
+                  values:
+                  - x2ls.ri.i80
+                - key: resource.compute.sensecore.cn/provide-spot-resource
+                  operator: NotIn
+                  values:
+                  - "false"
+        containers:
+        - env:
+          - name: SSP_TRAININGJOB_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['volcano.sh/job-name']
+          image: registry2.d.pjlab.org.cn/ccr-ailabdev/verl:0.7.0-maca.ai3.3.0.102-torch2.8-py310-ubuntu22.04-amd64-driver
+          imagePullPolicy: Always
+          name: head
+          resources:
+            limits:
+              cpu: "224"
+              memory: 1440Gi
+              metax-tech.com/gpu: "8"
+            requests:
+              cpu: "224"
+              memory: 1440Gi
+              metax-tech.com/gpu: "8"
+          securityContext:
+            capabilities:
+              add:
+              - IPC_LOCK
+              - SYS_PTRACE
+          volumeMounts:
+          - mountPath: /dev/shm
+            name: ait-shm-volume
+        - args:
+          - until wget --tries 1 -T 10 -q -O- http://localhost:8265/api/gcs_healthz
+            | grep success >/dev/null 2>&1 ; do echo "Waiting for Ray Dashboard GCS
+            to become healthy at http://127.0.0.1:8265 ..." ; sleep 2 ; done ; ray
+            job submit --address http://127.0.0.1:8265 --submission-id job-test-rayjob-muxi-zldmm
+            -- sleep inf ;
+          command:
+          - /bin/bash
+          - -ce
+          - --
+          env:
+          - name: PYTHONUNBUFFERED
+            value: "1"
+          - name: RAY_DASHBOARD_ADDRESS
+          - name: RAY_JOB_SUBMISSION_ID
+            value: job-test-rayjob-muxi-zldmm
+          image: registry2.d.pjlab.org.cn/ccr-ailabdev/verl:0.7.0-maca.ai3.3.0.102-torch2.8-py310-ubuntu22.04-amd64-driver
+          name: ray-job-submitter
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: 500m
+              memory: 200Mi
+        restartPolicy: Never
+        volumes:
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 64Gi
+          name: ait-shm-volume

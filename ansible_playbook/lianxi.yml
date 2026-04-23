@@ -1,0 +1,172 @@
+- name: transfer ngnix.conf.j2
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  vars: 
+    src_path: /home/test6/nginx.conf.j2
+    dest_path: /etc/nginx/nginx.conf
+
+  tasks:
+    - name: transfer file to dest
+      #file:      # 改正：下发 j2 必须用 template 模块
+      template:
+        src: "{{ src_path }}"  # 改正：用引号包起来
+        dest: "{{ dest_path }}" # 改正：用引号包起来 改正：dest
+        mode: "0644"
+      notify: restart nginx service
+  
+  handlers:
+    - name: restart nginx service
+      systemd:
+        name: nginx
+        state: restarted
+
+
+- name: download and unarchive file
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  vars:
+    src_path: /opt/tools
+
+  tasks:
+    - name: create /opt/tools
+      file:
+        path: {{ src_path }}
+        state: directory
+        mode: 0755
+
+    - name: download file
+      #shell: cd /tmp && wget -c -O my-tools-v1.tar.gz "http://192.168.1.100/downloads/my-tools-v1.tar.gz"
+      #get_url用它下载，如果文件已经存在且没变化，它就不会重复下载
+      get_url:
+        url: http://192.168.1.100/downloads/my-tools-v1.tar.gz
+        dest: /tmp/my-tools-v1.tar.gz
+
+    - name: unarchive the file
+      unarchive:
+        src: /tmp/my-tools-v1.tar.gz
+        dest: {{ src_path }}
+        remote_src: yes     # 关键点：告诉 Ansible 这个包已经在远端机器上了，不要在本地找！
+        
+
+- name: install basic network utilization
+  host: all
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # 针对 CentOS / RHEL 家族
+    - name: Install network tools for RedHat family
+      yum:
+        name: "{{ item }}"
+        state: present
+      # 使用 loop 循环安装这两个包
+      loop:
+        - net-tools
+        - bind-utils
+      # 关键点：条件判断！只有系统是 RedHat 时才执行这个任务
+      when: ansible_os_family == "RedHat"
+
+    # 针对 Ubuntu / Debian 家族
+    - name: Install network tools for Debian family
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - net-tools
+        - dnsutils
+      # 关键点：条件判断！只有系统是 Debian 时才执行这个任务
+      when: ansible_os_family == "Debian"
+
+
+
+# 题目七：多环境差异化目录与权限管理 (难度：⭐⭐)
+# 场景： 你们的 AI 平台有“开发”和“生产”两类环境。你需要给不同的服务器创建不同的日志目录。
+# 任务要求：
+
+# 定义一个变量列表 folder_list，包含两个字典：
+
+# { name: 'dev_logs', path: '/var/log/dev', env: 'development' }
+
+# { name: 'prod_logs', path: '/var/log/prod', env: 'production' }
+
+# 开启事实收集 (gather_facts: yes)。
+
+# 关键判断： 只有当目标机器的主机名 (ansible_hostname) 包含字符串 "prod" 时，才创建 prod_logs 目录；否则只创建 dev_logs 目录。
+
+# 目录权限统一设为 0755。
+# 💡 提示： 练习在 loop 中使用 item.xxx，并在 when 中使用字符串包含判断（例如：'prod' in ansible_hostname）。
+- name: Managed environmental log directories
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    folder_list:
+      - { name: 'dev_logs', path: '/var/log/dev', env: 'development' }
+      - { name: 'prod_logs', path: '/var/log/prod', env: 'production' }
+
+  tasks:
+    - name: Create directories based on hostname
+      file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ folder_list }}"
+      # 逻辑：如果是生产机器，匹配 prod 项；否则匹配 dev 项
+      when: >
+        (item.env == 'production' and 'prod' in ansible_hostname) or
+        (item.env == 'development' and 'prod' not in ansible_hostname)
+
+
+
+
+# 题目八：智能 NTP 时间同步配置 (难度：⭐⭐⭐)
+# 场景： 你需要统一集群的时间同步服务。CentOS 系统使用 chronyd，而 Ubuntu 系统使用 ntp。
+# 任务要求：
+
+# 定义一个包含两个服务的列表：['chronyd', 'ntp']。
+
+# 任务 1： 使用 loop 遍历这个列表，尝试启动并设置开机自启。
+
+# 关键判断： * 当系统是 RedHat 家族时，只启动 chronyd。
+
+# 当系统是 Debian 家族时，只启动 ntp。
+
+# 任务 2： 模拟下发一个新的时间配置文件 /etc/time_sync.conf（可以用 copy 模块配合 content 参数）。
+
+# 触发器： 只有当配置文件改变时，才根据系统类型分别重启对应的服务（即：如果是 CentOS 就重启 chronyd，如果是 Ubuntu 就重启 ntp）。
+# 💡 提示： 你需要定义两个不同的 handlers，并在 notify 时通过判断来决定喊哪一个。
+- name: Configure Time Sync Service
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    time_service_map:
+      RedHat: chronyd
+      Debian: ntp
+
+    time_service: "{{ time_service_map[ansible_os_family] }}"
+
+  tasks:
+    - name: Ensure time service is running
+      systemd:
+        name: "{{ time_service }}"
+        state: started
+        enabled: yes # 开机自动启动
+
+    - name: Deploy time sync config
+      copy:
+        content: "server ntp.aliyun.com iburst"
+        dest: /etc/time_sync.conf
+      notify: restart time service
+
+  handlers:
+    - name: restart time service
+      systemd:
+        name: "{{ time_service }}"
+        state: restarted

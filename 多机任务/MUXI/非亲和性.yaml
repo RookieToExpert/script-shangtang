@@ -1,0 +1,81 @@
+apiVersion: 'batch.volcano.sh/v1alpha1'
+kind: 'Job'
+metadata:
+  generateName: 'notaffinity-1gpu-'
+  namespace: 'default'
+  labels:
+    lepton.sensetime.com/submitter: 'pjailab'
+    lepton.sensetime.com/framework-type: 'PyTorch'
+    ring-controller.atlas: 'ascend-910b'
+spec:
+  minAvailable: 1
+  plugins:
+    svc: []
+    pytorch:
+      - '--master=master'
+      - '--worker=worker'
+      - '--port=23456'
+  maxRetry: 1
+  tasks:
+    - replicas: 1
+      name: 'worker'
+      policies:
+        - event: 'PodEvicted'
+          action: 'RestartJob'
+      template:
+        metadata:
+          labels:
+            lepton.sensetime.com/submitter: 'pjailab'
+            ring-controller.atlas: 'ascend-910b'
+        spec:
+          imagePullSecrets: null
+          containers:
+            - image: 'registry2.d.pjlab.org.cn/ccr-lepton-ais/ubuntu:22.04'
+              imagePullPolicy: 'IfNotPresent'
+              name: 'worker'
+              args:
+                - 'sleep inf'
+              command:
+                - 'bash'
+                - '-c'
+              env: []
+              volumeMounts:
+                - name: 'shm-data'
+                  mountPath: '/dev/shm'
+              resources:
+                requests:
+                  cpu: 16
+                  memory: '180Gi'
+                  metax-tech.com/gpu: '1'
+                limits:
+                  cpu: 16
+                  memory: '180Gi'
+                  metax-tech.com/gpu: '1'
+              securityContext:
+                privileged: true
+          restartPolicy: 'Never'
+          volumes:
+            - name: 'shm-data'
+              emptyDir:
+                medium: 'Memory'
+                sizeLimit: '64Gi'
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: 'resource.compute.sensecore.cn/machine-type'
+                        operator: 'In'
+                        values:
+                          - 'x2ls.ri.i80'
+                      - key: 'kubernetes.io/hostname'
+                        operator: 'In'
+                        values:
+                          - 'host-10-12-138-107'
+          nodeSelector: {}
+  priorityClassName: 'normal'
+  queue: 'default'
+  schedulerName: 'volcano'
+  policies:
+    - event: 'PodEvicted'
+      action: 'RestartJob'

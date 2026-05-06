@@ -1,0 +1,253 @@
+apiVersion: gpu.metax-tech.com/v1alpha1
+kind: ClusterOperator
+metadata:
+  annotations:
+    meta.helm.sh/release-name: infra-cloud-gpuoperator-metax
+    meta.helm.sh/release-namespace: kube-system
+  creationTimestamp: "2026-01-22T09:00:23Z"
+  finalizers:
+  - gpu.metax-tech.com
+  generation: 4
+  labels:
+    app.kubernetes.io/component: metax-operator
+    app.kubernetes.io/instance: infra-cloud-gpuoperator-metax
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: metax-operator
+    app.kubernetes.io/version: 0.0.0
+    helm.sh/chart: infra-cloud-gpuoperator-metax.chart-0.13.0-20260206T113330Z-2fa
+  name: cluster-operator
+  resourceVersion: "3031523762"
+  uid: 91f15655-e8f2-49eb-8969-1a3421d4a5f7
+spec:
+  dataExporter:
+    deploy: true
+    image:
+      name: mx-exporter
+      pullPolicy: IfNotPresent
+      registry: registry.sensetime.com/sensecore/metax-tech/cloud
+      version: 0.14.0
+    service:
+      port: 30445
+      type: ClusterIP
+  devicePlugin:
+    connectDetectPeriod: 0s
+    deploy: true
+    healthyInterval: 5
+    image:
+      name: gpu-device
+      pullPolicy: IfNotPresent
+      registry: registry.sensetime.com/sensecore/metax-tech/cloud
+      version: 0.13.0
+    log:
+      dir: /var/log/metax
+      format: json
+      level: info
+      maxAge: 26w
+      rotationTime: 1w
+  driver:
+    deploy: true
+    deployPolicy: PreferCloud
+    deviceAsRootGroup: false
+    fwEffectPolicy: NextReboot
+    fwEnableVirt: false
+    fwUpgradePolicy: PreferCloud
+    image:
+      name: driver-manager
+      pullPolicy: IfNotPresent
+      registry: registry.sensetime.com/sensecore/metax-tech/cloud
+      version: 0.13.0
+    log:
+      dir: /var/log/metax
+      format: json
+      level: info
+      maxAge: 26w
+      rotationTime: 1w
+    payload:
+      name: driver-image
+      pullPolicy: IfNotPresent
+      registry: registry.sensetime.com/sensecore/metax-tech/cloud
+      version: 3.3.0.4
+    upgradePolicy:
+      enableRollout: false
+      fallback: pause
+      maxFailureThreshold: 5
+      maxParallel: 100%
+      maxUnavailable: 0%
+      pause: false
+      upgradeSteps:
+      - pauseDuration: 30000
+        replicas: 1
+      - pauseDuration: 0
+        replicas: 100%
+  labelgen:
+    deploy: true
+    image:
+      name: gpu-label
+      pullPolicy: IfNotPresent
+      registry: registry.sensetime.com/sensecore/metax-tech/cloud
+      version: 0.13.0
+    log:
+      dir: /var/log/metax
+      format: json
+      level: info
+      maxAge: 26w
+      rotationTime: 1w
+    podTemplateSpec:
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: resource.sensecore.cn/gpu-series
+                  operator: In
+                  values:
+                  - MX
+        nodeSelector: {}
+        tolerations:
+        - key: node-role.compute.sensecore.cn/prod
+          operator: Exists
+        - key: node-role.sensecore.cn/data-plane
+          operator: Exists
+        - key: vcluster.loft.sh/unschedulable
+          operator: Exists
+  maca:
+    deploy: true
+    image:
+      name: driver-manager
+      pullPolicy: IfNotPresent
+      registry: registry.sensetime.com/sensecore/metax-tech/cloud
+      version: 0.13.0
+    log:
+      dir: /var/log/metax
+      format: json
+      level: info
+      maxAge: 26w
+      rotationTime: 1w
+    payload:
+      images:
+      - maca-native:3.3.0.4-ubuntu24.04-amd64
+      pullPolicy: IfNotPresent
+      registry: registry.sensetime.com/sensecore/metax-tech/library
+    resources:
+      limits:
+        memory: 10Gi
+      requests:
+        memory: 1Gi
+  podTemplateSpec:
+    spec:
+      affinity: {}
+      nodeSelector: {}
+      tolerations:
+      - key: node-role.compute.sensecore.cn/prod
+        operator: Exists
+      - key: node-role.sensecore.cn/data-plane
+        operator: Exists
+      - key: vcluster.loft.sh/unschedulable
+        operator: Exists
+  runtime:
+    deploy: true
+    image:
+      name: container-runtime
+      pullPolicy: IfNotPresent
+      registry: registry.sensetime.com/sensecore/metax-tech/cloud
+      version: 0.13.0
+    log:
+      dir: /var/log/metax
+      format: json
+      level: info
+      maxAge: 26w
+      rotationTime: 1w
+  topoDiscovery:
+    deploy: false
+    dragonfly:
+      enableTraining: false
+      nodeNumber: 2
+    master:
+      image:
+        name: topo-master
+        pullPolicy: IfNotPresent
+        registry: registry.sensetime.com/sensecore/metax-tech/cloud
+        version: 0.13.0-20260206T113330Z-2fa7ce954e
+      log:
+        dir: /var/log/metax
+        format: json
+        level: info
+        maxAge: 26w
+        rotationTime: 1w
+      podTemplateSpec:
+        spec:
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - preference:
+                  matchExpressions:
+                  - key: node-role.kubernetes.io/master
+                    operator: In
+                    values:
+                    - ""
+                weight: 1
+              - preference:
+                  matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: In
+                    values:
+                    - ""
+                weight: 1
+          tolerations:
+          - effect: NoSchedule
+            key: node-role.kubernetes.io/master
+            operator: Equal
+            value: ""
+          - effect: NoSchedule
+            key: node-role.kubernetes.io/control-plane
+            operator: Equal
+            value: ""
+      serverPort: 9001
+    mode: config
+    rpcServerPort: 10001
+    switchbox:
+      clusterManagerAddress: ""
+      clusterManagerPassword: ""
+      clusterManagerPollEventPeriod: 10
+      clusterManagerPollTopoPeriod: 30
+      clusterManagerUser: ""
+      enableTraining: false
+      nodeNumber: 2
+    worker:
+      image:
+        name: topo-worker
+        pullPolicy: IfNotPresent
+        registry: registry.sensetime.com/sensecore/metax-tech/cloud
+        version: 0.13.0-20260206T113330Z-2fa7ce954e
+      log:
+        dir: /var/log/metax
+        format: json
+        level: info
+        maxAge: 26w
+        rotationTime: 1w
+      metricsPort: 9002
+status:
+  state: deploying
+  upgradeStatus:
+    lastAppliedSpec: '{"kind":"DaemonSet","apiVersion":"apps/v1","metadata":{"name":"metax-driver","namespace":"kube-system","creationTimestamp":null,"labels":{"app":"metax-driver"}},"spec":{"selector":{"matchLabels":{"app":"metax-driver"}},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"metax-driver"}},"spec":{"volumes":[{"name":"metax-run","hostPath":{"path":"/run/metax","type":"DirectoryOrCreate"}},{"name":"metax-log","hostPath":{"path":"/var/log/metax","type":"DirectoryOrCreate"}},{"name":"modules","hostPath":{"path":"/lib/modules","type":"DirectoryOrCreate"}},{"name":"modprobe","hostPath":{"path":"/etc/modprobe.d","type":"DirectoryOrCreate"}},{"name":"config","configMap":{"name":"driver-config"}},{"name":"metax-vfio-config","configMap":{"name":"metax-vfio-config","items":[{"key":"vfio","path":"metax-vfio-config"}]}},{"name":"host-dev","hostPath":{"path":"/dev"}},{"name":"metax-payload","emptyDir":{}},{"name":"container-mxdriver","hostPath":{"path":"/usr/local/metax","type":"DirectoryOrCreate"}},{"name":"metax-fw-payload","emptyDir":{}},{"name":"host-firmware","hostPath":{"path":"/lib/firmware"}},{"name":"sys-volume","hostPath":{"path":"/sys","type":"Directory"}},{"name":"host-mxdriver","hostPath":{"path":"/opt/mxdriver"}},{"name":"vendor-config","configMap":{"name":"vendor-config"}}],"initContainers":[{"name":"driver-image","image":"registry.sensetime.com/sensecore/metax-tech/cloud/driver-image:3.3.0.4","command":["/bin/sh","-c","mkdir
+      /tmp/metax-payload/kernel_module; cp -r /metax/kernel_module/`uname -r` /tmp/metax-payload/kernel_module;
+      if [ -e \"/opt/mxdriver\" ]; then rm -rf /tmp/metax/mxdriver /tmp/metax/mxdriver.container
+      2\u003e/dev/null; cp -r /opt/mxdriver /tmp/metax/mxdriver.container 2\u003e/dev/null;
+      fi; mkdir -p /tmp/fw/opt; cp -r /opt/mxdriver /tmp/fw/opt || true; mkdir -p
+      /tmp/fw/lib/firmware; cp -r /lib/firmware/metax /tmp/fw/lib/firmware || true;
+      "],"resources":{},"volumeMounts":[{"name":"metax-payload","mountPath":"/tmp/metax-payload"},{"name":"container-mxdriver","mountPath":"/tmp/metax/"},{"name":"metax-fw-payload","mountPath":"/tmp/fw"}],"imagePullPolicy":"IfNotPresent","securityContext":{"privileged":true,"seLinuxOptions":{"level":"s0"}}}],"containers":[{"name":"driver-manager","image":"registry.sensetime.com/sensecore/metax-tech/cloud/driver-manager:0.13.0","command":["/usr/local/driver-manager/init.sh"],"args":["driver","--log-format=json","--log-level=info","--log-rotation=1w","--log-max-age=26w","--log-file=/var/log/metax/gpu-driver.log","--policy=prefercloud","--fw-upgrade-policy=prefercloud","--fw-effect-policy=nextreboot","--fw-enable-virt=false","--device-as-root-group=false"],"env":[{"name":"NODE_NAME","valueFrom":{"fieldRef":{"fieldPath":"spec.nodeName"}}},{"name":"NAMESPACE_NAME","valueFrom":{"fieldRef":{"fieldPath":"metadata.namespace"}}},{"name":"POD_NAME","valueFrom":{"fieldRef":{"fieldPath":"metadata.name"}}}],"resources":{},"volumeMounts":[{"name":"metax-run","mountPath":"/run/metax","mountPropagation":"Bidirectional"},{"name":"metax-log","mountPath":"/var/log/metax"},{"name":"modules","readOnly":true,"mountPath":"/lib/modules"},{"name":"modprobe","mountPath":"/host-modprobe"},{"name":"config","readOnly":true,"mountPath":"/config"},{"name":"metax-vfio-config","readOnly":true,"mountPath":"/vfio-config"},{"name":"host-dev","mountPath":"/host/dev"},{"name":"metax-payload","mountPath":"/usr/local/metax-driver-c500"},{"name":"metax-fw-payload","mountPath":"/payload"},{"name":"host-firmware","mountPath":"/host-firmware"},{"name":"sys-volume","mountPath":"/sys","mountPropagation":"Bidirectional"},{"name":"container-mxdriver","mountPath":"/host/usr/local/metax"},{"name":"host-mxdriver","mountPath":"/host/opt/mxdriver"},{"name":"vendor-config","mountPath":"/etc/gpu-vendor.yaml","subPath":"gpu-vendor.yaml"}],"readinessProbe":{"exec":{"command":["/usr/local/driver-manager/driver-health-check.sh"]},"initialDelaySeconds":10,"periodSeconds":10},"lifecycle":{"preStop":{"exec":{"command":["/bin/bash","-c","umount
+      /run/metax/driver; kubectl label node $NODE_NAME metax-tech.com/driver.ready-;
+      rm -f /host-modprobe/metax-ctnr.conf"]}}},"imagePullPolicy":"IfNotPresent","securityContext":{"privileged":true,"seLinuxOptions":{"level":"s0"}}}],"nodeSelector":{"metax-tech.com/gpu.installed":"true","metax-tech.com/runtime.ready":"true"},"serviceAccountName":"metax-driver","serviceAccount":"metax-driver","hostPID":true,"affinity":{},"tolerations":[{"key":"node-role.compute.sensecore.cn/prod","operator":"Exists"},{"key":"node-role.sensecore.cn/data-plane","operator":"Exists"}],"priorityClassName":"system-node-critical"}},"updateStrategy":{"type":"RollingUpdate"}},"status":{"currentNumberScheduled":0,"numberMisscheduled":0,"desiredNumberScheduled":0,"numberReady":0}}'
+    status:
+      CurrentUpgradeReadyReplicas: 0
+      currentFailureRetry: 0
+      currentStepIndex: 0
+      currentStepState: ""
+      currentUpgradeReplicas: 0
+      lastPodSpecRevision: prnmmsntpt
+      totalUpgradeReadyReplicas: 0
+      totalUpgradeReplicas: 0
+      upgradingPodSpecRevision: prpsprmvpo
+    upgrading: false
+ZSH-READY

@@ -1,0 +1,23 @@
+apiVersion: v1
+data:
+  module-params: |
+    {}
+  node-module-params: ""
+  node-vfnums: ""
+  nodes-config: |
+    - nodeName: host-10-12-138-220
+      vfNum: 2
+      vfioGPUs: all
+  version: v2
+kind: ConfigMap
+metadata:
+  annotations:
+    meta.helm.sh/release-name: infra-cloud-gpuoperator-metax
+    meta.helm.sh/release-namespace: kube-system
+  creationTimestamp: "2026-01-22T09:00:23Z"
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  name: driver-config
+  namespace: kube-system
+  resourceVersion: "3031523663"
+  uid: c7c08f10-3e38-483d-b88f-e8b7bba2229d

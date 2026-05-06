@@ -1,0 +1,136 @@
+root@host-10-12-144-15:~# modinfo metax
+filename:       /lib/modules/5.15.0-25-generic/extra/metax.ko
+build_date:     2026-03-30 14:29:41
+build_user:     jenkins_sw_bot
+git_commit:     81895080
+c600_vbios_min_version:       0.4.5.0
+c500_vbios_min_version:       1.12.0.0
+vbios_min_version:  2.0.0.0
+license:        GPL and additional rights
+description:    MetaX GPU Kernel Mode Driver
+version:        3.4.24
+import_ns:      "DMA_BUF"
+import_ns:      DMA_BUF
+srcversion:     AD26FAD96B76D9741F18AE9
+alias:          pci:v00009999d0000401Esv*sd*bc*sc*i*
+alias:          pci:v00009999d00004140sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004010sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004021sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004020sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004040sv*sd*bc*sc*i*
+alias:          pci:v00009999d00000011sv*sd*bc*sc*i*
+alias:          pci:v00009999d00000A18sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004180sv*sd*bc*sc*i*
+alias:          pci:v00009999d00000A01sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004080sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004158sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004007sv*sd*bc*sc*i*
+alias:          pci:v00009999d00000A19sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004198sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004118sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004019sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004038sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004081sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004004sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004011sv*sd*bc*sc*i*
+alias:          pci:v00009999d0000409Bsv*sd*bc*sc*i*
+alias:          pci:v00009999d0000401Csv*sd*bc*sc*i*
+alias:          pci:v00009999d00004100sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004028sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004058sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004002sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004018sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004000sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004098sv*sd*bc*sc*i*
+alias:          pci:v00009999d00000A03sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004083sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004001sv*sd*bc*sc*i*
+alias:          pci:v00009999d0000401Fsv*sd*bc*sc*i*
+alias:          pci:v00009999d00004006sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004099sv*sd*bc*sc*i*
+alias:          pci:v00009999d00004039sv*sd*bc*sc*i*
+alias:          pci:v00009999d0000401Asv*sd*bc*sc*i*
+alias:          pci:v00009999d00004029sv*sd*bc*sc*i*
+depends:        drm,ttm
+retpoline:      Y
+name:           metax
+vermagic:       5.15.0-25-generic SMP mod_unload modversions
+parm:           debug:Debug level (0=none,...,16=all) (int)
+parm:           batches_of_task:how many tasks metax_scheduler processes before appending an EOP? (default is 10) (uint)
+parm:           mb_stress:mailbox stress test(0 disable, nozero indicates ping count)
+parm:           xtt_userptr_limit:set system memory limit for (xtt + userptr) (default is 1)
+parm:           vram_free_sync_watermark:watermark of vram free sync, x/8 of total visible vram (default is 6/8) (ullong)
+parm:           log_flags:log flags
+parm:           log_level:log level(0: NONE 1: EMERG 2: ALERT 3: CRIT 4: ERR 5: WARN 6: NOTICE 7: INFO 8: DBG)
+parm:           sys_hugetlb:system memory map hugepage(maybe 2M) PTE to gpu, default is false (bool)
+parm:           xvm_page_size:VM page size (0 = 4K, 2 = 16K, 4 = 64K, 9 = 2M), default is 9 (int)
+parm:           xcore_page_size:XCORE ATUL1 page size (9 to 16, 9 = 2M, ... 16 = 256M), default is 14, deprecated (int)
+parm:           vf_only:driver only supports vf device, default is 0 (bool)
+parm:           vf_message_disable:disable message between vf and pf, default is false (bool)
+parm:           vf_access_timeout:disable vf access timeout in ms, default is 0 (int)
+parm:           vf_mb_test:enable vf mailbox test with pf, default is false (bool)
+parm:           flr_reinit:specify vf device to do flr reinitialization, default is 1 (int)
+parm:           flr_kill:enable vf flr kill bound process feature, default is true (bool)
+parm:           bad_pages:bad pages test, "ip:addr_type:err_code:addr" with comma for multiple entries (string)
+parm:           use_vpud:choose vpud or g2d, default is g2d (bool)
+parm:           vf_indirect_proxy_disable:disable indirect register access proxy, default is 0 (bool)
+parm:           ras_sync:sync ras table form SMP, default is 1 (bool)
+parm:           big_timeout:enable big timeout mode for EMU verification, default is false (bool)
+parm:           atu_inv_by_smp:invalidate ATU by SMP, default is 0 (bool)
+parm:           pasid_table_set_by_smp:update INT xpid-pasid mapping table by SMP, default is 1 (bool)
+parm:           pci_err_irq:use IRQ method to detect PCI error, default is 0 (bool)
+parm:           p2p_cpu_check:check if CPU supports p2pdma, default is 1 (bool)
+parm:           pci_acs_redir_disable:disable pcie acs redirect, default is 0 (bool)
+parm:           bad_page_threshold:maximum bad pages threshold, default is 1024 (int)
+parm:           nonxcore:use to control if the ko will set xcore atu and ce ip (int)
+parm:           mb_polling:enable polling mode for VF mailbox, default is false (bool)
+parm:           stream_mb_enable:enable stream mailbox, default is false (bool)
+parm:           disable_metalink:disable metalink completely, default is false (bool)
+parm:           pri_mem_sz:set private memory size in Kbyte, default is 4K (uint)
+parm:           mas:enable metax advanced storage, default is 0 (bool)
+parm:           support_sku_mismatch:always support creating queue even if SKU mismatched, default is 0 (bool)
+parm:           warmreset_hv_wdog:enable hypervisor warmreset watchdog, default is false (bool)
+parm:           sdma_burst_length:sdma burst length(0xf0 = 64 bytes, 0xfa = 128 bytes, 0xff = 256 bytes), deprecated (int)
+parm:           gpu_sched_timeout:gpu sched timeout in ms, default is 10s (uint)
+parm:           runpm:enable runtime pm, default is 1 (int)
+parm:           ras_ce_mon_debug:enable ras ce mon debug, default is 0 (int)
+parm:           ras_ce_mon_on:enable ras ce mon switch, default is 1 (int)
+parm:           warmreset_timeout_scale:warmreset timeout scale, default is 1 (int)
+parm:           ib_reg_addr:ib reg function address (ulong)
+parm:           ib_unreg_addr:ib unreg function address (ulong)
+parm:           reserve_cap:reserve capacity for multi-process, default is 1 (uint)
+parm:           test_mini_mode:test mini mode, default is 0 (bool)
+parm:           runpm_lp2:enable runtime lp2 power management, default is 0 (int)
+parm:           runpm_link:enable runtime pcie/metalink speed change, default is 1 (int)
+parm:           dump_ras_ce:enable dump ras ce error, default is true (bool)
+parm:           ecc_bypass:ecc bypass param (bit[63:32] are AP bitmask, bit[31:0] are dpc/chain id) (ulong)
+parm:           disable_new_fuse_id:disable new fuse id, default is 0 (int)
+parm:           inner_metalink_5bit_tag:force inner metalink to use 5-bit tag field (default is true) (bool)
+parm:           enable_warmreset_select_gpu:allow selected GPU to do warmreset independently, default is false (bool)
+parm:           enable_tba_in_vram:enable tba memory in vram for xcore initialization, default is false (bool)
+parm:           enable_xcore_regs_init:enable xcore initialization(st/mt/private mem), default is true (bool)
+parm:           enable_vl1_pt_hash:enable xcore vl1 pt hash, default is true (bool)
+parm:           fw_path:customized firmware image search path with a higher priority than default path (string)
+parm:           gpu_model:GPU device model (0 = native, 1 = sgpu), default is 0 (int)
+parm:           topo_df:df topo for mgpu, default is 0, 0 fixed topo, 1 df topo (int)
+parm:           disable_pci_cpl_timeout:disables the completion timeout mechanism of pcie, default is false (bool)
+parm:           metax_layout_enable:activate the metax/mxcd layout within /sys/class folder, default is false (bool)
+parm:           wipe_on_release:clear vram to 0 when vram is freed, default is true (bool)
+parm:           emu_make_fuse0:enable emu make fuse0 to start db (bool)
+parm:           emu_eth:Use to control if the ko will enable eth (int)
+parm:           eth_atu:Use to control if eth work with ATU enabled or not (int)
+parm:           eth_loopback:eth work loopback mode: (0 disable, 1 pcs loopback, 2 phy inner loopback), default is 0 (int)
+parm:           eth_cable_type:eth link cable type: (0 DAC Direct Attach Cable, 1 AOC Active Optical Cable), default is 0 (int)
+parm:           eth_no_maca:Use to control if rdma works with MACA or not (bool)
+parm:           eth_xpid0_uva:Use to control eth work mode as IOVA_UVA in UMD  (bool)
+parm:           metax_smp_sync:enable smp sync(default is true)
+parm:           smp_sync:bool
+parm:           topo_type:set mgpu topo type, default is 0 (uint)
+parm:           zebu_topo:set mgpu topo type, default is 0 (uint)
+parm:           enable_pci_msix:Enable pci msi-x (default msi) (bool)
+parm:           int_rb_use_doorbell:Allow app to update irq ring's RPTR through doorbell (default through MMIO reg write) (bool)
+parm:           mxme_size:specify MXME size in GigaBytes of one die, 0: disable (int)
+parm:           mailbox_timeout_scale:SMP mailbox timeout scale, default is 1
+parm:           mxcd_log_flags:mxcd log flags
+parm:           mxcd_log_level:log level (0:NONE, 1: EMERG, 2: ALERT, 3: CRIT, 4: ERR, 5: WARN, 6: NOTICE, 7: INFO, 8: DBG)
+parm:           umh_path:Driver exception UMH(user mode helper) path (charp)
